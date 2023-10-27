@@ -29,6 +29,10 @@ class NotifySendPy:
         if not self.dontQuitOnAction:
             self.loop.quit()
 
+    def force_expire(self, n):
+        n.close()
+        self.loop.quit()
+
     def notify(
         self,
         summary,
@@ -43,7 +47,8 @@ class NotifySendPy:
         replaces_id=None,
         replaces_process=None,
         urgency=None,
-        dontQuitOnAction=False
+        dontQuitOnAction=False,
+        force_expire=False,
     ):
         self.dontQuitOnAction = dontQuitOnAction
         summary = clean_up_text(summary)
@@ -151,7 +156,9 @@ class NotifySendPy:
                     conn.close()
         else:
             n.show()
-            if actions:
+            if force_expire:
+                GLib.timeout_add(1000 * int(expirey), self.force_expire, n)
+            if actions or force_expire:
                 self.loop.run()
             return n.id
 
@@ -166,6 +173,10 @@ class NotifySendPyCLI:
             '-t', '--expire-time', metavar='TIME',
             help=('Specifies the timeout in milliseconds at which'
                   ' to expire the notification.'))
+        parser.add_argument(
+            '--force-expire', action='store_true',
+            help=('Forces --expire-time for non-cooperating daemons by waiting for the specified duration'
+                  ' and explicitly closing the notification.'))
         parser.add_argument(
             '-a', '--app-name', metavar='APP_NAME',
             help='Specifies the app name for the icon')
@@ -210,6 +221,7 @@ class NotifySendPyCLI:
             app_name=args.app_name,
             category=args.category,
             expirey=args.expire_time,
+            force_expire=args.force_expire,
             hints=args.hint,
             icon=args.icon,
             replaces_id=args.replaces_id,
